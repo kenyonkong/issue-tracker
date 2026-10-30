@@ -51,7 +51,13 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: cleanTitle, description: description.trim(), priority, status }),
       })
-      if (!response.ok) throw new Error('Unable to create the issue. Check the form and try again.')
+      if (!response.ok) {
+        const responseBody = await response.json().catch(() => null)
+        const message = response.status === 409 && responseBody?.detail
+          ? responseBody.detail
+          : 'Unable to create the issue. Check the form and try again.'
+        throw new Error(message)
+      }
       const createdIssue = await response.json()
       setIssues((currentIssues) => [...currentIssues, createdIssue])
       setTitle('')

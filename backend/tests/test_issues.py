@@ -26,6 +26,47 @@ def test_create_and_get_issue() -> None:
     assert client.get("/api/issues").json() == [created.json()]
 
 
+def test_backend_generates_unique_issue_ids() -> None:
+    first = client.post("/api/issues", json={"title": "First", "description": "", "status": "Open", "priority": "Low"})
+    second = client.post("/api/issues", json={"title": "Second", "description": "", "status": "Resolved", "priority": "High"})
+
+    assert first.json()["id"] == 1
+    assert second.json()["id"] == 2
+
+
+@pytest.mark.parametrize("existing_status", ["Open", "In Progress"])
+def test_rejects_title_matching_an_active_issue(existing_status: str) -> None:
+    original = client.post(
+        "/api/issues",
+        json={"title": "Fix   Login", "description": "First report", "status": existing_status, "priority": "Low"},
+    )
+    duplicate = client.post(
+        "/api/issues",
+        json={"title": "  FIX login  ", "description": "Different report", "status": "Open", "priority": "High"},
+    )
+
+    assert original.status_code == 201
+    assert duplicate.status_code == 409
+    assert duplicate.json() == {"detail": "An active issue with this title already exists (issue #1)."}
+    assert len(main.issues) == 1
+
+
+def test_allows_title_matching_only_resolved_issues() -> None:
+    resolved = client.post(
+        "/api/issues",
+        json={"title": "Fix login", "description": "Old occurrence", "status": "Resolved", "priority": "Low"},
+    )
+    repeated = client.post(
+        "/api/issues",
+        json={"title": " fix LOGIN ", "description": "It happened again", "status": "Open", "priority": "High"},
+    )
+
+    assert resolved.status_code == 201
+    assert repeated.status_code == 201
+    assert repeated.json()["id"] == 2
+    assert len(main.issues) == 2
+
+
 @pytest.mark.parametrize("title", ["", "   ", "\t\n"])
 def test_create_rejects_blank_title(title: str) -> None:
     response = client.post("/api/issues", json={"title": title, "description": "", "status": "Open", "priority": "Low"})
