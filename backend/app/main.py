@@ -1,7 +1,7 @@
 from enum import Enum
 
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
 class IssueStatus(str, Enum):
@@ -33,6 +33,21 @@ class IssueCreate(BaseModel):
 
 class Issue(IssueCreate):
     id: int
+
+
+class IssueUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    description: str | None = None
+    status: IssueStatus | None = None
+    priority: IssuePriority | None = None
+
+    @model_validator(mode="after")
+    def include_at_least_one_change(self) -> "IssueUpdate":
+        if not self.model_fields_set or any(
+            getattr(self, field) is None for field in self.model_fields_set
+        ):
+            raise ValueError("Provide at least one non-null editable field")
+        return self
 
 
 app = FastAPI(title="Issue Tracker API")
@@ -74,4 +89,42 @@ def create_issue(issue_data: IssueCreate) -> Issue:
     next_issue_id += 1
     issues.append(issue)
     return issue
+
+
+@app.patch("/api/issues/{issue_id}", response_model=Issue)
+def update_issue(issue_id: int, issue_data: IssueUpdate) -> Issue:
+    issue_index = next((index for index, issue in enumerate(issues) if issue.id == issue_id), None)
+    if issue_index is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Issue #{issue_id} not found.")
+
+    current_issue = issues[issue_index]
+    changes = issue_data.model_dump(exclude_unset=True)
+    updated_issue = current_issue.model_copy(update=changes)
+
+    if updated_issue.status in {IssueStatus.OPEN, IssueStatus.IN_PROGRESS}:
+        duplicate = next(
+            (
+                issue for issue in issues
+                if issue.id != issue_id
+                and issue.status in {IssueStatus.OPEN, IssueStatus.IN_PROGRESS}
+                and normalize_title(issue.title) == normalize_title(updated_issue.title)
+            ),
+            None,
+        )
+        if duplicate is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f'An active issue with this title already exists (issue #{duplicate.id}).',
+            )
+
+    issues[issue_index] = updated_issue
+    return updated_issue
+
+
+@app.delete("/api/issues/{issue_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_issue(issue_id: int) -> None:
+    issue_index = next((index for index, issue in enumerate(issues) if issue.id == issue_id), None)
+    if issue_index is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Issue #{issue_id} not found.")
+    issues.pop(issue_index)
 

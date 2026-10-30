@@ -12,7 +12,8 @@ function ChoiceButtons({ label, options, value, onChange }) {
 
 function App() {
   const [issues, setIssues] = useState([])
-  const [filter, setFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('All')
+  const [priorityFilter, setPriorityFilter] = useState('All')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState(null)
@@ -20,6 +21,8 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editValues, setEditValues] = useState(null)
 
   useEffect(() => {
     let ignore = false
@@ -32,10 +35,22 @@ function App() {
     return () => { ignore = true }
   }, [])
 
-  const visibleIssues = useMemo(
-    () => filter === 'All' ? issues : issues.filter((issue) => issue.status === filter),
-    [filter, issues],
-  )
+  const visibleIssues = useMemo(() => {
+    const priorityOrder = new Map(PRIORITIES.map((value, index) => [value, index]))
+    const statusOrder = new Map(STATUSES.map((value, index) => [value, index]))
+    const filteredIssues = issues.filter((issue) =>
+      (statusFilter === 'All' || issue.status === statusFilter)
+      && (priorityFilter === 'All' || issue.priority === priorityFilter),
+    )
+
+    if (statusFilter !== 'All' && priorityFilter === 'All') {
+      return filteredIssues.sort((first, second) => priorityOrder.get(first.priority) - priorityOrder.get(second.priority))
+    }
+    if (priorityFilter !== 'All' && statusFilter === 'All') {
+      return filteredIssues.sort((first, second) => statusOrder.get(first.status) - statusOrder.get(second.status))
+    }
+    return filteredIssues
+  }, [issues, priorityFilter, statusFilter])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -71,6 +86,48 @@ function App() {
     }
   }
 
+  function startEditing(issue) {
+    setEditingId(issue.id)
+    setEditValues({ description: issue.description, priority: issue.priority, status: issue.status })
+    setError('')
+  }
+
+  async function saveIssue(issueId) {
+    setError('')
+    try {
+      const response = await fetch(`/api/issues/${issueId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editValues),
+      })
+      const responseBody = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(responseBody?.detail || `Unable to update issue #${issueId}.`)
+      setIssues((currentIssues) => currentIssues.map((issue) => issue.id === issueId ? responseBody : issue))
+      setEditingId(null)
+      setEditValues(null)
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
+
+  async function deleteIssue(issueId) {
+    setError('')
+    try {
+      const response = await fetch(`/api/issues/${issueId}`, { method: 'DELETE' })
+      if (!response.ok) {
+        const responseBody = await response.json().catch(() => null)
+        throw new Error(responseBody?.detail || `Unable to delete issue #${issueId}.`)
+      }
+      setIssues((currentIssues) => currentIssues.filter((issue) => issue.id !== issueId))
+      if (editingId === issueId) {
+        setEditingId(null)
+        setEditValues(null)
+      }
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
+
   return <main>
     <header><p className="eyebrow">Issue tracker</p><h1>Keep work moving.</h1>
       <p className="subtitle">Create, prioritize, and follow issues through resolution.</p></header>
@@ -94,17 +151,53 @@ function App() {
       <section className="panel" aria-labelledby="issues-heading">
         <div className="issues-heading"><div><p className="eyebrow">Workspace</p><h2 id="issues-heading">Issues</h2></div>
           <span className="count">{visibleIssues.length}</span></div>
-        <nav className="filters" aria-label="Filter issues by status">
-          {['All', ...STATUSES].map((option) => <button key={option} className={filter === option ? 'filter active' : 'filter'}
-            type="button" aria-pressed={filter === option} onClick={() => setFilter(option)}>{option}</button>)}
+        <nav className="filters" aria-label="Filter issues">
+          <div className="filter-group" role="group" aria-label="Filter by status">
+            <span className="filter-label">Status</span>
+            {['All', ...STATUSES].map((option) => <button key={option} className={statusFilter === option ? 'filter active' : 'filter'}
+              type="button" aria-pressed={statusFilter === option} onClick={() => setStatusFilter(option)}>{option}</button>)}
+          </div>
+          <div className="filter-group" role="group" aria-label="Filter by priority">
+            <span className="filter-label">Priority</span>
+            {['All', ...PRIORITIES].map((option) => <button key={option} className={priorityFilter === option ? 'filter active' : 'filter'}
+              type="button" aria-pressed={priorityFilter === option} onClick={() => setPriorityFilter(option)}>{option}</button>)}
+          </div>
         </nav>
+        {error && <p className="error-message list-error" role="alert">{error}</p>}
         {loading ? <p className="empty-state">Loading issues…</p> : visibleIssues.length === 0 ?
-          <p className="empty-state">No {filter === 'All' ? '' : `${filter.toLowerCase()} `}issues yet.</p> :
+          <p className="empty-state">No issues match the selected filters.</p> :
           <ul className="issue-list">{visibleIssues.map((issue) => <li className="issue-card" key={issue.id}>
             <div className="issue-topline"><span className={`priority priority-${issue.priority.toLowerCase()}`}>{issue.priority}</span>
               <span className="issue-id">#{issue.id}</span></div>
-            <h3>{issue.title}</h3>{issue.description && <p>{issue.description}</p>}
-            <span className={`status status-${issue.status.toLowerCase().replace(' ', '-')}`}>{issue.status}</span>
+            <h3>{issue.title}</h3>
+            {editingId === issue.id ? <div className="edit-fields">
+              <label htmlFor={`edit-description-${issue.id}`}>Description</label>
+              <textarea id={`edit-description-${issue.id}`} rows="3" value={editValues.description}
+                onChange={(event) => setEditValues({ ...editValues, description: event.target.value })} />
+              <label htmlFor={`edit-priority-${issue.id}`}>Priority</label>
+              <select id={`edit-priority-${issue.id}`} value={editValues.priority}
+                onChange={(event) => setEditValues({ ...editValues, priority: event.target.value })}>
+                {PRIORITIES.map((option) => <option key={option}>{option}</option>)}
+              </select>
+              <label htmlFor={`edit-status-${issue.id}`}>Status</label>
+              <select id={`edit-status-${issue.id}`} value={editValues.status}
+                onChange={(event) => setEditValues({ ...editValues, status: event.target.value })}>
+                {STATUSES.map((option) => <option key={option}>{option}</option>)}
+              </select>
+              <div className="issue-actions">
+                <button type="button" className="action primary" onClick={() => saveIssue(issue.id)}>Save</button>
+                <button type="button" className="action" onClick={() => { setEditingId(null); setEditValues(null) }}>Cancel</button>
+              </div>
+            </div> : <>
+              {issue.description && <p>{issue.description}</p>}
+              <div className="issue-footer">
+                <span className={`status status-${issue.status.toLowerCase().replace(' ', '-')}`}>{issue.status}</span>
+                <div className="issue-actions">
+                  <button type="button" className="action" onClick={() => startEditing(issue)}>Edit</button>
+                  <button type="button" className="action danger" onClick={() => deleteIssue(issue.id)}>Delete</button>
+                </div>
+              </div>
+            </>}
           </li>)}</ul>}
       </section>
     </div>

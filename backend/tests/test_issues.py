@@ -81,3 +81,46 @@ def test_create_rejects_invalid_selections(field: str, value: str | None) -> Non
     response = client.post("/api/issues", json=payload)
     assert response.status_code == 422
     assert main.issues == []
+
+
+def test_patch_updates_editable_fields_without_changing_title_or_id() -> None:
+    created = client.post(
+        "/api/issues",
+        json={"title": "Fix login", "description": "Old", "status": "Open", "priority": "Low"},
+    ).json()
+    response = client.patch(
+        f"/api/issues/{created['id']}",
+        json={"description": "Updated", "status": "Resolved", "priority": "High"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": created["id"], "title": "Fix login", "description": "Updated",
+        "status": "Resolved", "priority": "High",
+    }
+    assert client.get("/api/issues").json() == [response.json()]
+
+
+def test_patch_rejects_title_changes_and_unknown_ids() -> None:
+    created = client.post(
+        "/api/issues",
+        json={"title": "Fixed title", "description": "", "status": "Open", "priority": "Low"},
+    ).json()
+
+    assert client.patch(f"/api/issues/{created['id']}", json={"title": "New title"}).status_code == 422
+    missing = client.patch("/api/issues/999", json={"status": "Resolved"})
+    assert missing.status_code == 404
+    assert missing.json() == {"detail": "Issue #999 not found."}
+
+
+def test_delete_removes_issue_and_unknown_id_returns_404() -> None:
+    created = client.post(
+        "/api/issues",
+        json={"title": "Delete me", "description": "", "status": "Open", "priority": "Low"},
+    ).json()
+
+    assert client.delete(f"/api/issues/{created['id']}").status_code == 204
+    assert client.get("/api/issues").json() == []
+    missing = client.delete(f"/api/issues/{created['id']}")
+    assert missing.status_code == 404
+    assert missing.json() == {"detail": f"Issue #{created['id']} not found."}
