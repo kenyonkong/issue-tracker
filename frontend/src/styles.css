@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
+:root { font-family: 'DM Sans', system-ui, sans-serif; color: #17231c; background: #f4f5ef; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+main { min-height: 100vh; padding: clamp(2rem, 6vw, 5rem); background: radial-gradient(circle at 90% 0%, #dce8d4 0, transparent 30rem), #f4f5ef; }
+header, .layout { width: min(100%, 75rem); margin-inline: auto; }
+header { margin-bottom: 2.5rem; }
+.eyebrow { margin: 0 0 .45rem; color: #557a5c; font-size: .75rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+h1, h2, h3 { font-family: Manrope, system-ui, sans-serif; }
+h1 { margin: 0; font-size: clamp(2.6rem, 7vw, 5.3rem); line-height: .95; letter-spacing: -.06em; }
+.subtitle { margin: 1rem 0 0; color: #637067; font-size: 1.05rem; }
+.layout { display: grid; grid-template-columns: minmax(18rem, .8fr) minmax(22rem, 1.2fr); gap: 1.5rem; align-items: start; }
+.panel { padding: clamp(1.3rem, 3vw, 2rem); border: 1px solid #d8ddd3; border-radius: 1.2rem; background: rgb(255 255 252 / 88%); box-shadow: 0 1.2rem 3rem rgb(46 65 52 / 8%); }
+h2 { margin: 0; font-size: 1.55rem; letter-spacing: -.03em; }
+form { display: grid; gap: .7rem; margin-top: 1.6rem; }
+label, legend { font-weight: 700; font-size: .88rem; }
+.optional { float: right; color: #8b968e; font-weight: 400; }
+input, textarea { width: 100%; margin-bottom: .65rem; padding: .8rem .9rem; border: 1px solid #cdd4ca; border-radius: .65rem; color: #17231c; background: #fff; outline: none; transition: 150ms; }
+textarea { resize: vertical; }
+input:focus, textarea:focus { border-color: #557a5c; box-shadow: 0 0 0 3px #dce8d4; }
+fieldset { min-width: 0; margin: 0 0 .65rem; padding: 0; border: 0; }
+legend { margin-bottom: .55rem; }
+.choice-group, .filters { display: flex; flex-wrap: wrap; gap: .45rem; }
+.choice, .filter { padding: .55rem .75rem; border: 1px solid #cdd4ca; border-radius: 2rem; color: #536057; background: transparent; }
+.choice:hover, .filter:hover { border-color: #75937b; color: #29452f; }
+.choice.selected, .filter.active { border-color: #264a30; color: #fff; background: #264a30; }
+.error-message { margin: 0; color: #a33d32; font-size: .88rem; }
+.submit-button { margin-top: .25rem; padding: .8rem 1rem; border: 0; border-radius: .7rem; color: #fff; background: #d25d3f; font-weight: 700; }
+.submit-button:hover { background: #b8492f; }
+.submit-button:disabled { cursor: wait; opacity: .65; }
+.issues-heading { display: flex; align-items: center; justify-content: space-between; }
+.count { display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border-radius: 50%; color: #264a30; background: #e1ebdc; font-weight: 700; }
+.filters { margin: 1.5rem 0; padding-bottom: 1.25rem; border-bottom: 1px solid #e1e4de; }
+.filter { font-size: .85rem; }
+.empty-state { margin: 3rem 0; color: #7c887f; text-align: center; }
+.issue-list { display: grid; gap: .8rem; margin: 0; padding: 0; list-style: none; }
+.issue-card { padding: 1.1rem; border: 1px solid #e0e4dc; border-radius: .8rem; background: #fff; }
+.issue-topline { display: flex; align-items: center; justify-content: space-between; }
+.issue-card h3 { margin: .7rem 0 .35rem; font-size: 1.05rem; }
+.issue-card p { margin: 0 0 .8rem; color: #68736b; line-height: 1.5; white-space: pre-wrap; }
+.issue-id { color: #97a099; font-size: .78rem; }
+.priority, .status { display: inline-block; border-radius: 2rem; font-size: .72rem; font-weight: 700; }
+.priority { padding: .25rem .5rem; }
+.priority-high { color: #a33d32; background: #f9e6e1; }
+.priority-medium, .status-in-progress { color: #8a6014; background: #fbefd4; }
+.priority-low { color: #356884; background: #e0eff6; }
+.status { padding: .32rem .6rem; color: #4a5d4e; background: #edf0ea; }
+.status-resolved { color: #2f6b46; background: #dff1e3; }
+@media (max-width: 760px) { main { padding: 2rem 1rem; } .layout { grid-template-columns: 1fr; } }
